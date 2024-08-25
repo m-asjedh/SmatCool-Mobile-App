@@ -1,32 +1,42 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   FlatList,
   TouchableOpacity,
-  Image,
   ScrollView,
+  Modal,
+  TextInput,
+  Alert,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import COLORS from "../constants/colors";
-import CustomModal from "../components/CustomModal";
 import Button from "../components/Button";
+import axios from "axios";
+
+// Define the weight of each product
+const PRODUCT_WEIGHT = {
+  "Product 1": 50,
+  "Product 2": 30,
+};
 
 const Inventory = () => {
   const navigation = useNavigation();
-  const [modalVisible, setModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [newlyAddedProducts, setNewlyAddedProducts] = useState([]);
   const [listNumber, setListNumber] = useState(1);
   const [listDate, setListDate] = useState(new Date().toLocaleDateString());
+  const [modalVisible, setModalVisible] = useState(false);
+  const [quantityInput, setQuantityInput] = useState("");
+  const [listName, setListName] = useState("");
+  const [productQuantities, setProductQuantities] = useState({});
 
   const products = [
-    { id: "1", name: "Product 1", quantity: 10 },
-    { id: "2", name: "Product 2", quantity: 10 },
-    { id: "3", name: "Product 3", quantity: 10 },
-    { id: "4", name: "Product 4", quantity: 10 },
+    { id: "1", name: "Product 1" },
+    { id: "2", name: "Product 2" },
   ];
 
   const handleAddProduct = (productName) => {
@@ -35,13 +45,34 @@ const Inventory = () => {
   };
 
   const handleConfirmAdd = (quantity) => {
+    const parsedQuantity = parseInt(quantity) || 0;
+    if (!parsedQuantity) {
+      Alert.alert("Invalid Input", "Please enter a valid quantity.");
+      return;
+    }
+
     const newList = {
       id: listNumber,
-      products: [{ name: selectedProduct, quantity }],
+      date: listDate,
+      products: [{ name: selectedProduct, quantity: parsedQuantity }],
     };
-    setNewlyAddedProducts((prevLists) => [...prevLists, newList]);
-    setListNumber(listNumber + 1);
+
+    const existingList = newlyAddedProducts.find(
+      (list) => list.id === listNumber
+    );
+
+    if (existingList) {
+      existingList.products.push({
+        name: selectedProduct,
+        quantity: parsedQuantity,
+      });
+      setNewlyAddedProducts([...newlyAddedProducts]);
+    } else {
+      setNewlyAddedProducts((prevLists) => [...prevLists, newList]);
+    }
+
     setModalVisible(false);
+    setQuantityInput("");
   };
 
   const handleDeleteProduct = (listId, productName) => {
@@ -59,6 +90,38 @@ const Inventory = () => {
     setNewlyAddedProducts(updatedLists);
   };
 
+  // Function to fetch total weight from the sensor API
+  const fetchTotalWeight = async () => {
+    try {
+      const response = await axios.get(""); // Replace with actual API endpoint
+      const fetchedWeight = response.data.weight; // Assuming the response has a weight property
+
+      // Calculate quantities based on the fetched weight
+      calculateQuantities(fetchedWeight);
+    } catch (error) {
+      console.error("Error fetching total weight:", error);
+      Alert.alert("Error", "Failed to fetch weight from the sensor.");
+    }
+  };
+
+  // Function to calculate product quantities
+  const calculateQuantities = (totalWeight) => {
+    const quantities = {};
+    for (const product in PRODUCT_WEIGHT) {
+      quantities[product] = Math.floor(totalWeight / PRODUCT_WEIGHT[product]);
+    }
+    setProductQuantities(quantities);
+  };
+
+  // useEffect(() => {
+  //   fetchTotalWeight();
+
+  //   // Optional: If you want to update weight at regular intervals
+  //   const intervalId = setInterval(fetchTotalWeight, 5000); // fetch every 5 seconds
+
+  //   return () => clearInterval(intervalId); // cleanup on component unmount
+  // }, []);
+
   const renderItem = ({ item }) => (
     <View
       style={{
@@ -73,7 +136,7 @@ const Inventory = () => {
         {item.name}
       </Text>
       <Text style={{ flex: 1, fontSize: 18, color: COLORS.black }}>
-        {item.quantity}
+        {productQuantities[item.name] || 0}
       </Text>
       <TouchableOpacity onPress={() => handleAddProduct(item.name)}>
         <Ionicons name="add-circle" size={28} color={COLORS.black} />
@@ -149,17 +212,30 @@ const Inventory = () => {
         />
 
         {/* Newly Added Products Section */}
-        <View style={{ marginTop: 20 }}>
+        <View style={{ marginTop: 10 }}>
           <Text
             style={{
               fontSize: 24,
               fontWeight: "bold",
               color: COLORS.black,
-              marginBottom: 10,
             }}
           >
             Create Shopping List
           </Text>
+          <TextInput
+            style={{
+              height: 40,
+              borderColor: COLORS.black,
+              borderWidth: 1,
+              marginBottom: 5,
+              paddingHorizontal: 10,
+              borderRadius: 10,
+              backgroundColor: "white",
+            }}
+            placeholder="Enter list name"
+            value={listName}
+            onChangeText={setListName}
+          />
           <ScrollView
             style={{
               maxHeight: 200,
@@ -212,8 +288,8 @@ const Inventory = () => {
                       onPress={() => handleDeleteProduct(list.id, product.name)}
                     >
                       <Ionicons
-                        name="trash-outline"
-                        size={24}
+                        name="remove-circle"
+                        size={28}
                         color={COLORS.red}
                       />
                     </TouchableOpacity>
@@ -222,27 +298,85 @@ const Inventory = () => {
               </View>
             ))}
           </ScrollView>
+
+          <Button
+            style={{ marginTop: 15 }}
+            title="Submit List"
+            onPress={async () => {
+              if (!listName) {
+                Alert.alert(
+                  "Missing Information",
+                  "Please enter a name for the shopping list."
+                );
+                return;
+              }
+
+              try {
+                await axios.post(`http://10.0.2.2:3000/api/shopping-lists`, {
+                  name: listName,
+                  items: newlyAddedProducts.flatMap((list) => list.products),
+                });
+                Alert.alert("Success", "Shopping list submitted successfully!");
+                setListName("");
+                setNewlyAddedProducts([]);
+              } catch (error) {
+                console.error("Error submitting list:", error);
+                Alert.alert("Error", "Failed to submit the shopping list.");
+              }
+            }}
+          />
         </View>
 
-        <Button
-          title="Create"
-          style={{
-            padding: 15,
-            borderRadius: 10,
-            alignItems: "center",
-            marginVertical: 10,
-          }}
-          onPress={() => navigation.navigate("ShoppingList")}
-        />
+        {/* Add Product Modal */}
+        <Modal visible={modalVisible} transparent={true} animationType="slide">
+          <View
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+            }}
+          >
+            <View
+              style={{
+                width: 300,
+                backgroundColor: "white",
+                padding: 20,
+                borderRadius: 10,
+              }}
+            >
+              <Text style={{ fontSize: 20, marginBottom: 10 }}>
+                Add {selectedProduct}
+              </Text>
+              <TextInput
+                style={{
+                  height: 40,
+                  borderColor: "gray",
+                  borderWidth: 1,
+                  marginBottom: 20,
+                  paddingHorizontal: 10,
+                  borderRadius: 10,
+                }}
+                placeholder="Enter quantity"
+                keyboardType="numeric"
+                value={quantityInput}
+                onChangeText={(text) => setQuantityInput(text)}
+              />
+              <Button
+                title="Confirm"
+                onPress={() => handleConfirmAdd(quantityInput)}
+              />
+              <Button title="Cancel" onPress={() => setModalVisible(false)} />
+            </View>
+          </View>
+        </Modal>
       </View>
-
       <View
         style={{
           flexDirection: "row",
           flexWrap: "wrap",
           justifyContent: "space-around",
           marginTop: 50,
-          padding: 20,
         }}
       >
         <Image
@@ -282,13 +416,6 @@ const Inventory = () => {
           }}
         />
       </View>
-
-      <CustomModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onConfirm={handleConfirmAdd}
-        productName={selectedProduct}
-      />
     </LinearGradient>
   );
 };

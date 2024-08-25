@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,53 +6,46 @@ import {
   Image,
   FlatList,
   Alert,
+  Modal,
+  TextInput,
+  Button,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import COLORS from "../constants/colors";
-import Button from "../components/Button";
-import { useNavigation } from "@react-navigation/native";
+import axios from "axios";
 
 const ShoppingList = ({ navigation }) => {
-  const navigate = useNavigation();
   const [expandedId, setExpandedId] = useState(null);
-  const [shoppingLists, setShoppingLists] = useState([
-    {
-      id: 1,
-      number: 1,
-      date: "2024-06-22",
-      products: [
-        { name: "Product A", quantity: 2 },
-        { name: "Product B", quantity: 1 },
-        { name: "Product C", quantity: 3 },
-      ],
-    },
-    {
-      id: 2,
-      number: 2,
-      date: "2024-06-23",
-      products: [
-        { name: "Product X", quantity: 5 },
-        { name: "Product Y", quantity: 2 },
-        { name: "Product Z", quantity: 4 },
-      ],
-    },
-    {
-      id: 3,
-      number: 3,
-      date: "2024-06-24",
-      products: [
-        { name: "Product P", quantity: 1 },
-        { name: "Product Q", quantity: 2 },
-        { name: "Product R", quantity: 3 },
-      ],
-    },
-  ]);
+  const [shoppingLists, setShoppingLists] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [currentList, setCurrentList] = useState(null);
+  const [editedItems, setEditedItems] = useState([]);
+
+  // Function to fetch shopping lists from the backend
+  useEffect(() => {
+    const fetchShoppingLists = async () => {
+      try {
+        const response = await axios.get(
+          "http://10.0.2.2:3000/api/shopping-lists"
+        );
+        console.log("API Response:", response.data);
+        setShoppingLists(response.data);
+      } catch (error) {
+        console.error("Error fetching shopping lists:", error);
+        Alert.alert("Error", "Failed to fetch shopping lists.");
+      }
+    };
+
+    fetchShoppingLists();
+  }, []);
 
   const toggleExpand = (itemId) => {
     setExpandedId((prevId) => (prevId === itemId ? null : itemId));
   };
 
+  // Function to delete shopping lists from the backend
   const handleDelete = (itemId) => {
     Alert.alert(
       "Delete Shopping List",
@@ -64,10 +57,19 @@ const ShoppingList = ({ navigation }) => {
         },
         {
           text: "Delete",
-          onPress: () => {
-            setShoppingLists((prevLists) =>
-              prevLists.filter((list) => list.id !== itemId)
-            );
+          onPress: async () => {
+            try {
+              await axios.delete(
+                `http://10.0.2.2:3000/api/shopping-lists/${itemId}`
+              );
+              setShoppingLists((prevLists) =>
+                prevLists.filter((list) => list._id !== itemId)
+              );
+              Alert.alert("Success", "Shopping list deleted successfully.");
+            } catch (error) {
+              console.error("Error deleting shopping list:", error);
+              Alert.alert("Error", "Failed to delete shopping list.");
+            }
           },
           style: "destructive",
         },
@@ -75,70 +77,160 @@ const ShoppingList = ({ navigation }) => {
     );
   };
 
-  const renderItem = ({ item }) => (
-    <View
-      style={{
-        backgroundColor: COLORS.white,
-        padding: 15,
-        borderRadius: 10,
-        marginVertical: 5,
-      }}
-    >
-      <TouchableOpacity
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          backgroundColor: COLORS.lightGray,
-          padding: 10,
-          borderRadius: 5,
-        }}
-        onPress={() => toggleExpand(item.id)}
-      >
-        <Text style={{ fontSize: 22, fontWeight: "bold" }}>
-          List {item.number}
-        </Text>
-        <Text style={{ fontSize: 20 }}>{item.date}</Text>
-        <Ionicons
-          name={expandedId === item.id ? "chevron-up" : "chevron-down"}
-          size={24}
-          color={COLORS.black}
-        />
-      </TouchableOpacity>
+  const handleEdit = (list) => {
+    setCurrentList(list);
+    setEditedItems(list.items);
+    setModalVisible(true);
+  };
 
-      {expandedId === item.id && (
-        <View
+  const handleUpdate = async () => {
+    try {
+      await axios.put(
+        `http://10.0.2.2:3000/api/shopping-lists/${currentList._id}/items`,
+        {
+          items: editedItems,
+        }
+      );
+      setShoppingLists((prevLists) =>
+        prevLists.map((list) =>
+          list._id === currentList._id ? { ...list, items: editedItems } : list
+        )
+      );
+      setModalVisible(false);
+      Alert.alert("Success", "Shopping list updated successfully.");
+    } catch (error) {
+      console.error("Error updating shopping list:", error);
+      Alert.alert("Error", "Failed to update shopping list.");
+    }
+  };
+
+  const handleEditItem = (index, newQuantity) => {
+    const quantity = parseInt(newQuantity);
+
+    const updatedItems = [...editedItems];
+
+    if (!isNaN(quantity)) {
+      updatedItems[index] = {
+        ...updatedItems[index],
+        quantity: quantity,
+      };
+    } else {
+      // Handle invalid or empty input here, e.g., setting quantity to 0 or leaving unchanged
+      updatedItems[index] = {
+        ...updatedItems[index],
+        quantity: 0, // or you can use '' if you want to keep it empty
+      };
+    }
+
+    setEditedItems(updatedItems);
+  };
+
+  const handleRemoveItem = (index) => {
+    const updatedItems = editedItems.filter((_, i) => i !== index);
+    setEditedItems(updatedItems);
+  };
+
+  const renderItem = ({ item }) => {
+    if (!item || !item._id) {
+      return null;
+    }
+
+    return (
+      <View
+        style={{
+          backgroundColor: COLORS.white,
+          padding: 15,
+          borderRadius: 10,
+          marginVertical: 5,
+        }}
+      >
+        <TouchableOpacity
           style={{
-            backgroundColor: COLORS.white,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            backgroundColor: COLORS.lightGray,
             padding: 10,
             borderRadius: 5,
-            marginTop: 5,
           }}
+          onPress={() => toggleExpand(item._id)}
         >
-          {item.products.map((product, index) => (
-            <View key={index} style={{ flexDirection: "row", marginBottom: 5 }}>
-              <Text style={{ flex: 1, fontSize: 20 }}>{product.name}</Text>
-              <Text style={{ fontSize: 20 }}>{product.quantity}</Text>
-            </View>
-          ))}
-          <TouchableOpacity
+          <Text style={{ fontSize: 22, fontWeight: "bold" }}>{item.name}</Text>
+          <Text style={{ fontSize: 16 }}>
+            {new Date(item.createdAt).toLocaleDateString()}
+          </Text>
+          <Ionicons
+            name={expandedId === item._id ? "chevron-up" : "chevron-down"}
+            size={24}
+            color={COLORS.black}
+          />
+        </TouchableOpacity>
+
+        {expandedId === item._id && (
+          <View
             style={{
-              flexDirection: "row",
-              justifyContent: "center",
-              alignItems: "center",
-              marginTop: 10,
+              backgroundColor: COLORS.white,
+              padding: 10,
+              borderRadius: 5,
+              marginTop: 5,
             }}
-            onPress={() => handleDelete(item.id)}
           >
-            <Ionicons name="trash-bin" size={24} color={COLORS.red} />
-            <Text style={{ fontSize: 20, color: COLORS.red, marginLeft: 5 }}>
-              Delete List
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
-  );
+            {item.items.map((product, index) => (
+              <View
+                key={product._id}
+                style={{
+                  flexDirection: "row",
+                  marginBottom: 5,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ flex: 1, fontSize: 20 }}>{product.name}</Text>
+                <Text style={{ fontSize: 20 }}>{product.quantity}</Text>
+              </View>
+            ))}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginTop: 10,
+              }}
+            >
+              <TouchableOpacity
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+                onPress={() => handleDelete(item._id)}
+              >
+                <Ionicons name="trash-bin" size={24} color={COLORS.red} />
+                <Text
+                  style={{ fontSize: 20, color: COLORS.red, marginLeft: 5 }}
+                >
+                  Delete List
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+                onPress={() => handleEdit(item)}
+              >
+                <Ionicons name="pencil" size={24} color={COLORS.black} />
+                <Text
+                  style={{ fontSize: 20, color: COLORS.black, marginLeft: 5 }}
+                >
+                  Edit List
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <LinearGradient
@@ -167,7 +259,7 @@ const ShoppingList = ({ navigation }) => {
         <FlatList
           data={shoppingLists}
           renderItem={renderItem}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => item._id.toString()}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 20 }}
         />
@@ -175,9 +267,7 @@ const ShoppingList = ({ navigation }) => {
         <View
           style={{
             flexDirection: "row",
-            flexWrap: "wrap",
             justifyContent: "space-around",
-            marginTop: 50,
           }}
         >
           <Image
@@ -186,7 +276,7 @@ const ShoppingList = ({ navigation }) => {
               width: 100,
               height: 100,
               borderRadius: 20,
-              transform: [{ rotate: "-15deg" }],
+              transform: [{ rotate: "15deg" }],
             }}
           />
           <Image
@@ -218,6 +308,74 @@ const ShoppingList = ({ navigation }) => {
           />
         </View>
       </View>
+
+      {/* Modal for Editing Shopping List */}
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0,0,0,0.5)",
+          }}
+        >
+          <View
+            style={{
+              width: "80%",
+              backgroundColor: COLORS.white,
+              padding: 20,
+              borderRadius: 10,
+            }}
+          >
+            <Text
+              style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}
+            >
+              Edit List
+            </Text>
+            <ScrollView>
+              {editedItems.map((item, index) => (
+                <View
+                  key={index}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 10,
+                    borderBottomWidth: 1,
+                    borderBottomColor: COLORS.lightGray,
+                    paddingBottom: 5,
+                  }}
+                >
+                  <Text style={{ flex: 1, fontSize: 16 }}>{item.name}</Text>
+                  <TextInput
+                    style={{
+                      flex: 1,
+                      textAlign: "center",
+                      marginRight: 10,
+                    }}
+                    keyboardType="numeric"
+                    value={item.quantity.toString()}
+                    onChangeText={(text) => handleEditItem(index, text.trim())}
+                  />
+
+                  <TouchableOpacity onPress={() => handleRemoveItem(index)}>
+                    <Ionicons name="trash-bin" size={24} color={COLORS.red} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+            <Button
+              title="Update List"
+              onPress={handleUpdate}
+              color={COLORS.primary}
+            />
+            <Button
+              title="Close"
+              onPress={() => setModalVisible(false)}
+              color={COLORS.lightGray}
+            />
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 };
