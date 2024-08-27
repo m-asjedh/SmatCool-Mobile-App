@@ -17,12 +17,6 @@ import COLORS from "../constants/colors";
 import Button from "../components/Button";
 import axios from "axios";
 
-// Define the weight of each product
-const PRODUCT_WEIGHT = {
-  "Product 1": 50,
-  "Product 2": 30,
-};
-
 const Inventory = () => {
   const navigation = useNavigation();
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -38,6 +32,33 @@ const Inventory = () => {
     { id: "1", name: "Product 1" },
     { id: "2", name: "Product 2" },
   ];
+
+  useEffect(() => {
+    const fetchWeights = async () => {
+      try {
+        const response = await axios.get(
+          "http://192.168.137.131:8080/api/data/"
+        );
+        const { weight1, quantity1, weight2, quantity2, temperature } =
+          response.data;
+
+        setProductQuantities({
+          "Product 1": quantity1,
+          "Product 2": quantity2,
+        });
+      } catch (error) {
+        console.error("Error fetching weights:", error);
+        Alert.alert("Error", "Failed to fetch weight data.");
+      }
+    };
+
+    fetchWeights(); // Initial fetch
+
+    const intervalId = setInterval(fetchWeights, 10000); // Fetch every 10 seconds
+
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleAddProduct = (productName) => {
     setSelectedProduct(productName);
@@ -89,38 +110,6 @@ const Inventory = () => {
     });
     setNewlyAddedProducts(updatedLists);
   };
-
-  // Function to fetch total weight from the sensor API
-  const fetchTotalWeight = async () => {
-    try {
-      const response = await axios.get(""); // Replace with actual API endpoint
-      const fetchedWeight = response.data.weight; // Assuming the response has a weight property
-
-      // Calculate quantities based on the fetched weight
-      calculateQuantities(fetchedWeight);
-    } catch (error) {
-      console.error("Error fetching total weight:", error);
-      Alert.alert("Error", "Failed to fetch weight from the sensor.");
-    }
-  };
-
-  // Function to calculate product quantities
-  const calculateQuantities = (totalWeight) => {
-    const quantities = {};
-    for (const product in PRODUCT_WEIGHT) {
-      quantities[product] = Math.floor(totalWeight / PRODUCT_WEIGHT[product]);
-    }
-    setProductQuantities(quantities);
-  };
-
-  // useEffect(() => {
-  //   fetchTotalWeight();
-
-  //   // Optional: If you want to update weight at regular intervals
-  //   const intervalId = setInterval(fetchTotalWeight, 5000); // fetch every 5 seconds
-
-  //   return () => clearInterval(intervalId); // cleanup on component unmount
-  // }, []);
 
   const renderItem = ({ item }) => (
     <View
@@ -312,29 +301,36 @@ const Inventory = () => {
               }
 
               try {
-                await axios.post(`http://10.0.2.2:3000/api/shopping-lists`, {
+                await axios.post(`http://10.0.2.2:8080/api/lists`, {
                   name: listName,
-                  items: newlyAddedProducts.flatMap((list) => list.products),
+                  date: listDate,
+                  products: newlyAddedProducts,
                 });
+
                 Alert.alert("Success", "Shopping list submitted successfully!");
+                setListNumber(listNumber + 1);
                 setListName("");
                 setNewlyAddedProducts([]);
               } catch (error) {
-                console.error("Error submitting list:", error);
-                Alert.alert("Error", "Failed to submit the shopping list.");
+                Alert.alert("Error", "Failed to submit shopping list.");
               }
             }}
           />
         </View>
 
-        {/* Add Product Modal */}
-        <Modal visible={modalVisible} transparent={true} animationType="slide">
+        {/* Modal for Adding Product */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
           <View
             style={{
               flex: 1,
               justifyContent: "center",
               alignItems: "center",
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              backgroundColor: "rgba(0,0,0,0.5)",
             }}
           >
             <View
@@ -371,6 +367,8 @@ const Inventory = () => {
           </View>
         </Modal>
       </View>
+
+      {/* Images Section */}
       <View
         style={{
           flexDirection: "row",
