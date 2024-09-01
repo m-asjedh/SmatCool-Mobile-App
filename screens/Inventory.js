@@ -33,6 +33,7 @@ const Inventory = () => {
   const [quantityInput, setQuantityInput] = useState("");
   const [listName, setListName] = useState("");
   const [productQuantities, setProductQuantities] = useState({});
+  const [previousQuantities, setPreviousQuantities] = useState({});
 
   const products = [
     { id: "1", name: "Product 1" },
@@ -93,15 +94,55 @@ const Inventory = () => {
   useEffect(() => {
     const fetchWeights = async () => {
       try {
+        // Fetch product quantities from the API
         const response = await axios.get(
           "http://192.168.137.131:8080/api/weights/"
         );
         const { quantity1, quantity2 } = response.data;
 
-        setProductQuantities({
+        // New quantities fetched from API
+        const newQuantities = {
           "Product 1": quantity1,
           "Product 2": quantity2,
+        };
+
+        console.log("Fetched quantities:", newQuantities);
+
+        // Compare with previous quantities to show notifications
+        Object.keys(newQuantities).forEach(async (product) => {
+          const previousQuantity = previousQuantities[product] || 0;
+          const currentQuantity = newQuantities[product];
+
+          console.log(
+            `Checking ${product}: Previous - ${previousQuantity}, Current - ${currentQuantity}`
+          );
+
+          // Check if product is out of stock
+          if (previousQuantity !== 0 && currentQuantity === 0) {
+            Alert.alert("Out of Stock", `${product} is out of stock.`);
+            console.log(`Product ${product} is out of stock.`);
+
+            // Save notification to MongoDB
+            try {
+              const notificationResponse = await axios.post(
+                "http://localhost:3000/api/notifications",
+                {
+                  productName: product,
+                  message: `${product} is out of stock.`,
+                }
+              );
+              console.log("Notification saved:", notificationResponse.data);
+            } catch (error) {
+              console.error("Error saving notification:", error);
+            }
+          }
         });
+
+        // Update the previous quantities state
+        setPreviousQuantities(newQuantities);
+
+        // Update the product quantities to be displayed
+        setProductQuantities(newQuantities);
       } catch (error) {
         console.error("Error fetching weights:", error);
         Alert.alert("Error", "Failed to fetch weight data.");
@@ -114,7 +155,7 @@ const Inventory = () => {
 
     // Clean up interval on component unmount
     return () => clearInterval(intervalId);
-  }, []);
+  }, [previousQuantities]);
 
   const renderItem = ({ item }) => (
     <View
