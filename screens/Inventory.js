@@ -17,6 +17,12 @@ import COLORS from "../constants/colors";
 import Button from "../components/Button";
 import axios from "axios";
 
+// Define the weight of each product
+const PRODUCT_WEIGHT = {
+  "Product 1": 50,
+  "Product 2": 30,
+};
+
 const Inventory = () => {
   const navigation = useNavigation();
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -32,33 +38,6 @@ const Inventory = () => {
     { id: "1", name: "Product 1" },
     { id: "2", name: "Product 2" },
   ];
-
-  useEffect(() => {
-    const fetchWeights = async () => {
-      try {
-        const response = await axios.get(
-          "http://192.168.137.131:8080/api/data/"
-        );
-        const { weight1, quantity1, weight2, quantity2, temperature } =
-          response.data;
-
-        setProductQuantities({
-          "Product 1": quantity1,
-          "Product 2": quantity2,
-        });
-      } catch (error) {
-        console.error("Error fetching weights:", error);
-        Alert.alert("Error", "Failed to fetch weight data.");
-      }
-    };
-
-    fetchWeights(); // Initial fetch
-
-    const intervalId = setInterval(fetchWeights, 10000); // Fetch every 10 seconds
-
-    // Clean up interval on component unmount
-    return () => clearInterval(intervalId);
-  }, []);
 
   const handleAddProduct = (productName) => {
     setSelectedProduct(productName);
@@ -110,6 +89,32 @@ const Inventory = () => {
     });
     setNewlyAddedProducts(updatedLists);
   };
+
+  useEffect(() => {
+    const fetchWeights = async () => {
+      try {
+        const response = await axios.get(
+          "http://192.168.137.131:8080/api/weights/"
+        );
+        const { quantity1, quantity2 } = response.data;
+
+        setProductQuantities({
+          "Product 1": quantity1,
+          "Product 2": quantity2,
+        });
+      } catch (error) {
+        console.error("Error fetching weights:", error);
+        Alert.alert("Error", "Failed to fetch weight data.");
+      }
+    };
+
+    fetchWeights(); // Initial fetch
+
+    const intervalId = setInterval(fetchWeights, 10000); // Fetch every 10 seconds
+
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
   const renderItem = ({ item }) => (
     <View
@@ -301,36 +306,29 @@ const Inventory = () => {
               }
 
               try {
-                await axios.post(`http://10.0.2.2:8080/api/lists`, {
+                await axios.post(`http://10.0.2.2:3000/api/shopping-lists`, {
                   name: listName,
-                  date: listDate,
-                  products: newlyAddedProducts,
+                  items: newlyAddedProducts.flatMap((list) => list.products),
                 });
-
                 Alert.alert("Success", "Shopping list submitted successfully!");
-                setListNumber(listNumber + 1);
                 setListName("");
                 setNewlyAddedProducts([]);
               } catch (error) {
-                Alert.alert("Error", "Failed to submit shopping list.");
+                console.error("Error submitting list:", error);
+                Alert.alert("Error", "Failed to submit the shopping list.");
               }
             }}
           />
         </View>
 
-        {/* Modal for Adding Product */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={modalVisible}
-          onRequestClose={() => setModalVisible(false)}
-        >
+        {/* Add Product Modal */}
+        <Modal visible={modalVisible} animationType="slide" transparent={true}>
           <View
             style={{
               flex: 1,
               justifyContent: "center",
               alignItems: "center",
-              backgroundColor: "rgba(0,0,0,0.5)",
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
             }}
           >
             <View
@@ -339,80 +337,90 @@ const Inventory = () => {
                 backgroundColor: "white",
                 padding: 20,
                 borderRadius: 10,
+                alignItems: "center",
               }}
             >
-              <Text style={{ fontSize: 20, marginBottom: 10 }}>
-                Add {selectedProduct}
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  marginBottom: 10,
+                  color: COLORS.black,
+                }}
+              >
+                Enter Quantity
               </Text>
               <TextInput
                 style={{
                   height: 40,
-                  borderColor: "gray",
+                  borderColor: COLORS.black,
                   borderWidth: 1,
-                  marginBottom: 20,
+                  marginBottom: 10,
                   paddingHorizontal: 10,
                   borderRadius: 10,
+                  width: "100%",
                 }}
-                placeholder="Enter quantity"
                 keyboardType="numeric"
+                placeholder="Enter quantity"
                 value={quantityInput}
-                onChangeText={(text) => setQuantityInput(text)}
+                onChangeText={setQuantityInput}
               />
               <Button
                 title="Confirm"
                 onPress={() => handleConfirmAdd(quantityInput)}
               />
-              <Button title="Cancel" onPress={() => setModalVisible(false)} />
+              <Button
+                title="Cancel"
+                onPress={() => setModalVisible(false)}
+                color={COLORS.red}
+              />
             </View>
           </View>
         </Modal>
-      </View>
-
-      {/* Images Section */}
-      <View
-        style={{
-          flexDirection: "row",
-          flexWrap: "wrap",
-          justifyContent: "space-around",
-          marginTop: 50,
-        }}
-      >
-        <Image
-          source={require("../assets/welcom1.jpg")}
+        <View
           style={{
-            width: 100,
-            height: 100,
-            borderRadius: 20,
-            transform: [{ rotate: "-15deg" }],
+            marginTop: 20,
+            flexDirection: "row",
+            justifyContent: "space-around",
           }}
-        />
-        <Image
-          source={require("../assets/welcome2.jpg")}
-          style={{
-            width: 100,
-            height: 100,
-            borderRadius: 20,
-            transform: [{ rotate: "0deg" }],
-          }}
-        />
-        <Image
-          source={require("../assets/welcome3.jpg")}
-          style={{
-            width: 100,
-            height: 100,
-            borderRadius: 20,
-            transform: [{ rotate: "15deg" }],
-          }}
-        />
-        <Image
-          source={require("../assets/welcom4.jpg")}
-          style={{
-            width: 100,
-            height: 100,
-            borderRadius: 20,
-            transform: [{ rotate: "-15deg" }],
-          }}
-        />
+        >
+          <Image
+            source={require("../assets/welcom1.jpg")}
+            style={{
+              width: 100,
+              height: 100,
+              borderRadius: 20,
+              transform: [{ rotate: "15deg" }],
+            }}
+          />
+          <Image
+            source={require("../assets/welcome2.jpg")}
+            style={{
+              width: 100,
+              height: 100,
+              borderRadius: 20,
+              transform: [{ rotate: "0deg" }],
+            }}
+          />
+          <Image
+            source={require("../assets/welcome3.jpg")}
+            style={{
+              width: 100,
+              height: 100,
+              borderRadius: 20,
+              transform: [{ rotate: "15deg" }],
+            }}
+          />
+          <Image
+            source={require("../assets/welcom4.jpg")}
+            style={{
+              width: 100,
+              height: 100,
+              borderRadius: 20,
+              transform: [{ rotate: "-15deg" }],
+            }}
+          />
+        </View>
       </View>
     </LinearGradient>
   );

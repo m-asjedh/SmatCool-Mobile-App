@@ -73,10 +73,9 @@ const Notifications = ({ navigation }) => {
 
         <View
           style={{
+            marginTop: 30,
             flexDirection: "row",
-            flexWrap: "wrap",
             justifyContent: "space-around",
-            marginTop: 50,
           }}
         >
           <Image
@@ -85,7 +84,7 @@ const Notifications = ({ navigation }) => {
               width: 100,
               height: 100,
               borderRadius: 20,
-              transform: [{ rotate: "-15deg" }],
+              transform: [{ rotate: "15deg" }],
             }}
           />
           <Image
