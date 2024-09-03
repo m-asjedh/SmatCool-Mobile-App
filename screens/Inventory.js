@@ -125,7 +125,7 @@ const Inventory = () => {
             // Save notification to MongoDB
             try {
               const notificationResponse = await axios.post(
-                "http://localhost:3000/api/notifications",
+                "http://10.0.2.2:3000/api/notifications",
                 {
                   productName: product,
                   message: `${product} is out of stock.`,

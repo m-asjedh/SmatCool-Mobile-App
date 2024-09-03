@@ -1,20 +1,61 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, FlatList, Image } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  Image,
+  Alert,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import COLORS from "../constants/colors";
+import axios from "axios";
+
+// Helper function to format date and time
+const formatDateTime = (dateString) => {
+  const options = {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+  };
+  return new Date(dateString).toLocaleDateString(undefined, options);
+};
 
 const Notifications = ({ navigation }) => {
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: "Product 1 is going to finish soon." },
-    { id: 2, message: "Product 2 is going to finish soon." },
-    { id: 3, message: "The temperature has dropped by 10 degrees." },
-  ]);
+  const [notifications, setNotifications] = useState([]);
 
-  const deleteNotification = (id) => {
-    setNotifications((prevNotifications) =>
-      prevNotifications.filter((notification) => notification.id !== id)
-    );
+  // Fetch notifications from the API
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await axios.get(
+          "http://10.0.2.2:3000/api/notifications"
+        ); // Replace with your backend IP address
+        setNotifications(response.data);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+        Alert.alert("Error", "Failed to load notifications.");
+      }
+    };
+
+    fetchNotifications();
+  }, []);
+
+  const deleteNotification = async (id) => {
+    try {
+      // Call the API to delete the notification
+      await axios.delete(`http://10.0.2.2:3000/api/notifications/${id}`); // Replace with your backend IP address
+      // Update the state to remove the deleted notification
+      setNotifications((prevNotifications) =>
+        prevNotifications.filter((notification) => notification._id !== id)
+      );
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      Alert.alert("Error", "Failed to delete the notification.");
+    }
   };
 
   const renderItem = ({ item }) => (
@@ -29,10 +70,16 @@ const Notifications = ({ navigation }) => {
         alignItems: "center",
       }}
     >
-      <Text style={{ fontSize: 18, color: COLORS.black, flex: 1 }}>
-        {item.message}
-      </Text>
-      <TouchableOpacity onPress={() => deleteNotification(item.id)}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 18, color: COLORS.black }}>
+          {item.message}
+        </Text>
+        <Text style={{ fontSize: 14, color: COLORS.gray, marginTop: 5 }}>
+          {formatDateTime(item.createdAt)}{" "}
+          {/* Display formatted date and time */}
+        </Text>
+      </View>
+      <TouchableOpacity onPress={() => deleteNotification(item._id)}>
         <Ionicons name="trash-outline" size={24} color={COLORS.red} />
       </TouchableOpacity>
     </View>
@@ -66,7 +113,7 @@ const Notifications = ({ navigation }) => {
           <FlatList
             data={notifications}
             renderItem={renderItem}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item._id.toString()}
             showsVerticalScrollIndicator={false}
           />
         </View>
