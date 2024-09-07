@@ -25,7 +25,7 @@ const Home = () => {
         const response = await axios.get(
           "http://192.168.137.131:8080/api/temperature"
         );
-        console.log("API Response:", response.data); // Log the response
+        console.log("API Response:", response.data);
         const { temperature, humidity } = response.data;
 
         setTemperature(temperature);
@@ -39,8 +39,6 @@ const Home = () => {
 
     fetchWeatherData();
     const intervalId = setInterval(fetchWeatherData, 60000); // Fetch every 60 seconds
-
-    // Clean up interval on component unmount
     return () => clearInterval(intervalId);
   }, []);
 

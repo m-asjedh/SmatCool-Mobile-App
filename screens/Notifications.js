@@ -12,7 +12,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import COLORS from "../constants/colors";
 import axios from "axios";
 
-// Helper function to format date and time
 const formatDateTime = (dateString) => {
   const options = {
     year: "numeric",
@@ -33,7 +32,7 @@ const Notifications = ({ navigation }) => {
       try {
         const response = await axios.get(
           "http://10.0.2.2:3000/api/notifications"
-        ); // Replace with your backend IP address
+        );
         setNotifications(response.data);
       } catch (error) {
         console.error("Error fetching notifications:", error);
@@ -44,11 +43,11 @@ const Notifications = ({ navigation }) => {
     fetchNotifications();
   }, []);
 
+  // Delete a notification from the DB API
   const deleteNotification = async (id) => {
     try {
-      // Call the API to delete the notification
-      await axios.delete(`http://10.0.2.2:3000/api/notifications/${id}`); // Replace with your backend IP address
-      // Update the state to remove the deleted notification
+      await axios.delete(`http://10.0.2.2:3000/api/notifications/${id}`);
+
       setNotifications((prevNotifications) =>
         prevNotifications.filter((notification) => notification._id !== id)
       );
@@ -76,7 +75,6 @@ const Notifications = ({ navigation }) => {
         </Text>
         <Text style={{ fontSize: 14, color: COLORS.gray, marginTop: 5 }}>
           {formatDateTime(item.createdAt)}{" "}
-          {/* Display formatted date and time */}
         </Text>
       </View>
       <TouchableOpacity onPress={() => deleteNotification(item._id)}>

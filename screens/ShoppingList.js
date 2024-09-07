@@ -115,10 +115,9 @@ const ShoppingList = ({ navigation }) => {
         quantity: quantity,
       };
     } else {
-      // Handle invalid or empty input here, e.g., setting quantity to 0 or leaving unchanged
       updatedItems[index] = {
         ...updatedItems[index],
-        quantity: 0, // or you can use '' if you want to keep it empty
+        quantity: 0,
       };
     }
 
@@ -308,8 +307,6 @@ const ShoppingList = ({ navigation }) => {
           />
         </View>
       </View>
-
-      {/* Modal for Editing Shopping List */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View
           style={{

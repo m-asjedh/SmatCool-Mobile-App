@@ -17,12 +17,6 @@ import COLORS from "../constants/colors";
 import Button from "../components/Button";
 import axios from "axios";
 
-// Define the weight of each product
-const PRODUCT_WEIGHT = {
-  "Product 1": 50,
-  "Product 2": 30,
-};
-
 const Inventory = () => {
   const navigation = useNavigation();
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -94,13 +88,10 @@ const Inventory = () => {
   useEffect(() => {
     const fetchWeights = async () => {
       try {
-        // Fetch product quantities from the API
         const response = await axios.get(
           "http://192.168.137.131:8080/api/weights/"
         );
         const { quantity1, quantity2 } = response.data;
-
-        // New quantities fetched from API
         const newQuantities = {
           "Product 1": quantity1,
           "Product 2": quantity2,
@@ -108,7 +99,6 @@ const Inventory = () => {
 
         console.log("Fetched quantities:", newQuantities);
 
-        // Compare with previous quantities to show notifications
         Object.keys(newQuantities).forEach(async (product) => {
           const previousQuantity = previousQuantities[product] || 0;
           const currentQuantity = newQuantities[product];
@@ -117,12 +107,9 @@ const Inventory = () => {
             `Checking ${product}: Previous - ${previousQuantity}, Current - ${currentQuantity}`
           );
 
-          // Check if product is out of stock
           if (previousQuantity !== 0 && currentQuantity === 0) {
             Alert.alert("Out of Stock", `${product} is out of stock.`);
             console.log(`Product ${product} is out of stock.`);
-
-            // Save notification to MongoDB
             try {
               const notificationResponse = await axios.post(
                 "http://10.0.2.2:3000/api/notifications",
@@ -138,10 +125,8 @@ const Inventory = () => {
           }
         });
 
-        // Update the previous quantities state
         setPreviousQuantities(newQuantities);
 
-        // Update the product quantities to be displayed
         setProductQuantities(newQuantities);
       } catch (error) {
         console.error("Error fetching weights:", error);
@@ -149,11 +134,9 @@ const Inventory = () => {
       }
     };
 
-    fetchWeights(); // Initial fetch
+    fetchWeights();
 
     const intervalId = setInterval(fetchWeights, 10000); // Fetch every 10 seconds
-
-    // Clean up interval on component unmount
     return () => clearInterval(intervalId);
   }, [previousQuantities]);
 
